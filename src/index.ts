@@ -1,72 +1,85 @@
-import { createServer, IncomingMessage, ServerResponse } from 'http';
-import { buildUrl, getRandomInt } from './utils';
+import { serve } from "https://deno.land/std@0.167.0/http/server.ts";
+import { buildUrl, getRandomInt } from "./utils.ts";
 
-const host = "https://9gag.com/v1/tag-posts/tag/:tag/type/:type"
+const envPort = Deno.env.get("PORT");
 
-const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-  console.log(req.url);
+const port = envPort != undefined ? parseInt(envPort, 10) : 8080;
 
-  if (!req.url?.startsWith('/tag/')) {
-    res.writeHead(404);
-    res.end('Not Found');
-    return;
+const host = "https://9gag.com/v1/tag-posts/tag/:tag/type/:type";
+
+async function handleRequest(request: Request): Promise<Response> {
+  if (!request.url.includes("/tag/")) {
+    return new Response("Not Allowed", { status: 405 });
   }
 
-  const parts = req.url.split('/');
+  const parts = request.url.split("/");
 
   const reqData = {
-    tag: parts[2],
-    type: parts[3] || 'fresh',
-  }
-
-  res.setHeader('Content-Type', 'application/json');
+    tag: parts[4],
+    type: parts[5] || "fresh",
+  };
 
   try {
-    const response = await fetch(buildUrl(host, reqData))
+    const response = await fetch(buildUrl(host, reqData));
     const r = await response.json() as NineGagReqponse;
-
-    console.log(r.data.posts);
 
     const post = r.data.posts[getRandomInt(0, r.data.posts.length - 1)];
 
-    if (req.url.endsWith('json')) {
-      res.writeHead(200);
-      res.end(JSON.stringify(post));
-      return;
+    if (request.url.endsWith("json")) {
+      return new Response(
+        JSON.stringify(JSON.stringify(post)),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
     }
 
     let url: string;
 
-    if (post.type == 'Photo') {
-      url = post.images.image700.webpUrl
+    if (post.type == "Photo") {
+      url = post.images.image700.webpUrl;
     } else {
       url = post.images.image460sv?.url || post.images.image700.url;
     }
 
     const imgRes = await fetch(url);
 
-    console.log(imgRes.headers);
-
     const img = await imgRes.arrayBuffer();
 
-    ['content-type', 'content-length', 'connection', 'cache-control', 'expires', 'etag', 'x-cache', 'accept-ranges', 'vary'].forEach(key => {
-      const reader = imgRes.headers.get(key);
-      if (reader) {
-        res.setHeader(key, reader);
+    const headers = new Headers();
+
+    [
+      "content-type",
+      "content-length",
+      "connection",
+      "cache-control",
+      "expires",
+      "etag",
+      "x-cache",
+      "accept-ranges",
+      "vary",
+    ].forEach((key) => {
+      const header = imgRes.headers.get(key);
+      if (header) {
+        headers.append(key, header);
       }
-    })
+    });
 
-    res.writeHead(200);
-    res.end(Buffer.from(img));
-
+    return new Response(img, {
+      status: 200,
+      headers,
+    });
   } catch (err) {
     console.error(err);
-    res.writeHead(400);
-    res.end(JSON.stringify(err));
+    return new Response(JSON.stringify(err), { status: 400 });
   }
-});
+}
 
-server.listen(process.env.PORT || 3000);
+console.log(`HTTP webserver running`);
+await serve(handleRequest, { port });
 
 // ===============================================================================
 
@@ -76,29 +89,29 @@ type NineGagReqponse = {
   };
   data: {
     posts: Post[];
-  }
-}
+  };
+};
 
 type Tag = {
   key: string;
   url: string;
-}
+};
 
 type Photo = {
   url: string;
   width: number;
   height: number;
   webpUrl: string;
-}
+};
 
 type Anmated = {
-    width: number;
-    height: number;
-    url: string;
-    hasAudio: 0 | 1;
-    duration: number;
-    vp8Url: string;
-}
+  width: number;
+  height: number;
+  url: string;
+  hasAudio: 0 | 1;
+  duration: number;
+  vp8Url: string;
+};
 
 type Post = {
   id: string;
@@ -108,8 +121,8 @@ type Post = {
   images: {
     image700: Photo;
     image460: Photo;
-    imageFbThumbnail: Exclude<Photo, 'webpUrl'>;
+    imageFbThumbnail: Exclude<Photo, "webpUrl">;
     image460sv?: Anmated;
-  }
+  };
   tags: Tag[];
-}
+};

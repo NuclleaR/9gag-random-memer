@@ -11,3 +11,7 @@ export function buildUrl(url: string, data: Record<string, string | number | boo
 export function getRandomInt(from: number, to: number): number {
   return Math.floor(Math.random() * (to - from + 1)) + from;
 }
+
+export function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined;
+}
