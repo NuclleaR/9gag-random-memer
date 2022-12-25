@@ -2,9 +2,11 @@
   "name": "9gag-random-memer",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn ./src/index.ts"
+    "dev": "ts-node-dev --respawn ./src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc"
   },
   "keywords": [],
   "author": "NuclleaR <nuclear.890@gmail.com>",
